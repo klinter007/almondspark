@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Application</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <script src="https://unpkg.com/alpinejs" defer></script>
+    <script src="https://unpkg.com/htmx.org" defer></script>
+    <script src="../js/app.js" defer></script>
+</head>
+<body>
+    <div x-data="{ open: false }">
+        <div hx-get="../partials/header.html" hx-target="this" hx-trigger="load"></div>
+        <main>
+            <h1>Welcome to the Frontend Application</h1>
+            <p>This is the main page of the application.</p>
+        </main>
+    </div>
+</body>
+</html>

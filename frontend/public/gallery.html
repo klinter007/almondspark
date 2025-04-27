@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery - Almond Spark</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Favicon -->
+    <link rel="icon" href="images/logo.png" type="image/png">
+    <!-- HTMX -->
+    <script src="js/htmx.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="js/alpine.min.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="gallery.html" class="active">Gallery</a></li>
+            <li><a href="personal-note.html">Personal Note</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <header class="hero">
+            <div class="title-container">
+                <h1 class="main-title">Gallery</h1>
+                <p class="tagline">Visual Strips Created by Our Community</p>
+            </div>
+        </header>
+        
+        <main class="content">
+            <section class="gallery-section">
+                <p class="gallery-intro">Here are past generations from our users. hope you can find helpful strips for you here.</p>
+                
+                <div class="gallery-controls">
+                    <button id="reload-gallery-top" class="gallery-button">
+                        <i class="fas fa-dice"></i> Show me more
+                    </button>
+                </div>
+                
+                <div id="gallery-container" class="gallery-grid">
+                    <!-- Gallery items will be loaded here -->
+                    <div class="gallery-loading">
+                        <div class="spinner"></div>
+                        <p>Loading gallery items...</p>
+                    </div>
+                </div>
+                
+                <!-- Add the bottom button -->
+                <div class="gallery-controls bottom-controls">
+                    <button id="reload-gallery-bottom" class="gallery-button">
+                        <i class="fas fa-dice"></i> Show me more
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Almond Spark. All rights reserved.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load gallery items when page loads
+            loadGalleryItems();
+            
+            // Reload gallery when either button is clicked
+            document.getElementById('reload-gallery-top').addEventListener('click', loadGalleryItems);
+            document.getElementById('reload-gallery-bottom').addEventListener('click', loadGalleryItems);
+        });
+        
+        function loadGalleryItems() {
+            const galleryContainer = document.getElementById('gallery-container');
+            
+            // Show loading indicator
+            galleryContainer.innerHTML = `
+                <div class="gallery-loading">
+                    <div class="spinner"></div>
+                    <p>Loading gallery items...</p>
+                </div>
+            `;
+            
+            // Fetch random gallery items from the API
+            fetch('http://127.0.0.1:8001/api/gallery')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear the container
+                    galleryContainer.innerHTML = '';
+                    
+                    // Check if we got gallery items
+                    if (!data.gallery || data.gallery.length === 0) {
+                        galleryContainer.innerHTML = `
+                            <div class="gallery-empty">
+                                <p>No gallery items available yet. Generate some images first!</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Display up to 5 random gallery items
+                    data.gallery.slice(0, 5).forEach(item => {
+                        const galleryItem = document.createElement('div');
+                        galleryItem.className = 'gallery-item';
+                        
+                        galleryItem.innerHTML = `
+                            <div class="gallery-image-container">
+                                <img src="data:image/png;base64,${item.image_base64}" alt="${item.sentence}" class="gallery-image">
+                                <div class="gallery-actions">
+                                    <button class="gallery-action-btn download-btn" title="Download" onclick="downloadImage('${item.filename}', '${item.image_base64}')">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <button class="gallery-action-btn print-btn" title="Print" onclick="printImage('${item.image_base64}', '${item.sentence}')">
+                                        <i class="fas fa-print"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="gallery-caption">
+                                <p>${item.sentence}</p>
+                            </div>
+                        `;
+                        
+                        galleryContainer.appendChild(galleryItem);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading gallery:', error);
+                    galleryContainer.innerHTML = `
+                        <div class="gallery-error">
+                            <p>Error loading gallery items. Please try again later.</p>
+                            <p class="error-details">${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Function to download an image
+        function downloadImage(filename, base64Data) {
+            const link = document.createElement('a');
+            link.href = `data:image/png;base64,${base64Data}`;
+            link.download = filename || 'almond-spark-image.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Function to print an image
+        function printImage(base64Data, caption) {
+            const printWindow = window.open('', '_blank');
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Print Image - Almond Spark</title>
+                    <style>
+                        body {
+                            font-family: sans-serif;
+                            text-align: center;
+                            padding: 20px;
+                        }
+                        img {
+                            max-width: 100%;
+                            margin-bottom: 20px;
+                        }
+                        .caption {
+                            font-size: 16px;
+                            margin-top: 10px;
+                            color: #333;
+                        }
+                        @media print {
+                            .no-print {
+                                display: none;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="no-print">
+                        <h1>Print Preview</h1>
+                        <p>Press Ctrl+P (or Cmd+P on Mac) to print this image</p>
+                        <button onclick="window.print()">Print</button>
+                        <button onclick="window.close()">Close</button>
+                        <hr>
+                    </div>
+                    
+                    <img src="data:image/png;base64,${base64Data}" alt="${caption}">
+                    <div class="caption">${caption}</div>
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+        }
+    </script>
+</body>
+</html>

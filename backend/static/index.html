@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Gemini 2 Strip Generator</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+    }
+    textarea, input[type="text"] {
+      width: 100%;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+    }
+    #result img, .gallery-item img {
+      max-width: 100%;
+      height: auto;
+    }
+    .gallery-item {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 1rem;
+    }
+    mark {
+      background-color: yellow;
+    }
+  </style>
+</head>
+<body>
+  <h1>Gemini 2 Strip Generator</h1>
+
+  <section>
+    <h2>Generate a Strip</h2>
+    <form id="generatorForm">
+      <textarea id="sentence" placeholder="Enter your sentence here"></textarea>
+      <br>
+      <button type="submit">Generate</button>
+    </form>
+    <div id="result"></div>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>Gallery</h2>
+    <input type="text" id="searchTerm" placeholder="Search for strips..." />
+    <button id="searchBtn">Search</button>
+    <button id="moreBtn">Show Me 5 More</button>
+    <div id="gallery"></div>
+  </section>
+
+  <script>
+    // Handler for the strip generator form
+    document.getElementById('generatorForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const sentence = document.getElementById('sentence').value.trim();
+      if (!sentence) {
+        alert("Please enter a sentence");
+        return;
+      }
+      document.getElementById('result').innerHTML = "Generating...";
+      try {
+        const response = await fetch("/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ sentence })
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Error generating image");
+        }
+        const data = await response.json();
+        const imgSrc = "data:image/png;base64," + data.image_base64;
+        document.getElementById('result').innerHTML = `
+          <p>Filename: ${data.filename}</p>
+          <img src="${imgSrc}" alt="Generated Strip" />
+        `;
+      } catch (error) {
+        document.getElementById('result').innerHTML = `<p>Error: ${error.message}</p>`;
+      }
+    });
+
+    // Function to load and display gallery items
+    async function loadGallery() {
+      const search = document.getElementById('searchTerm').value.trim();
+      let url = "/gallery";
+      if (search) {
+        url += "?search=" + encodeURIComponent(search);
+      }
+      document.getElementById('gallery').innerHTML = "Loading gallery...";
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("Failed to load gallery");
+        }
+        const data = await response.json();
+        if (data.gallery.length === 0) {
+          document.getElementById('gallery').innerHTML = "<p>No strips found.</p>";
+          return;
+        }
+        let galleryHtml = "";
+        data.gallery.forEach(rec => {
+          const imgSrc = "data:image/png;base64," + rec.image_base64;
+          galleryHtml += `
+            <div class="gallery-item">
+              <p>Filename: ${rec.filename}</p>
+              <p>Sentence: ${rec.sentence}</p>
+              <img src="${imgSrc}" alt="Strip ${rec.filename}" />
+            </div>
+          `;
+        });
+        document.getElementById('gallery').innerHTML = galleryHtml;
+      } catch (error) {
+        document.getElementById('gallery').innerHTML = `<p>Error: ${error.message}</p>`;
+      }
+    }
+
+    // Set up event handlers for search and "more" button
+    document.getElementById('searchBtn').addEventListener('click', loadGallery);
+    document.getElementById('moreBtn').addEventListener('click', loadGallery);
+
+    // Load gallery when the page loads
+    window.onload = loadGallery;
+  </script>
+</body>
+</html>
