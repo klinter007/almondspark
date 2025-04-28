@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Almond Spark</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- Favicon -->
+    <link rel="icon" href="/static/images/logo.png" type="image/png">
+    <!-- HTMX -->
+    <script src="/static/js/htmx.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="/static/js/alpine.min.js"></script>
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="/" class="active">Home</a></li>
+            <li><a href="/gallery">Gallery</a></li>
+            <li><a href="/personal-note">Personal Note</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <header class="hero">
+            <img src="/static/images/topbanner.png" alt="Almond Spark" class="hero-image">
+            <div class="title-container">
+                <h1 class="main-title">AlmondSpark</h1>
+                <p class="tagline">Lighting New Paths to Connection</p>
+                <p class="disclaimer">This is experimental only, we can't promise it will help you, we can't even promise it will generate correctly. It's free though...</p>
+            </div>
+        </header>
+        
+        <main class="content">
+            <section class="generator-section">
+                <h2>Generate Your Visual Strip</h2>
+                <p class="generator-intro">Enter the idea or sentence you wish to convey and press the button</p>
+                
+                <div class="generator-form" x-data="{ sentence: '', generating: false }">
+                    <div class="input-wrapper">
+                        <textarea 
+                            class="sentence-input" 
+                            placeholder="Type your sentence here..." 
+                            x-model="sentence"
+                            :disabled="generating"
+                        ></textarea>
+                    </div>
+                    
+                    <div class="button-wrapper">
+                        <button 
+                            class="generate-button"
+                            onclick="submitForm()"
+                            :disabled="!sentence.trim() || generating"
+                        >
+                            <span x-show="!generating">Generate Icon Strip</span>
+                            <span x-show="generating">Generating...</span>
+                        </button>
+                    </div>
+                    <p class="generation-disclaimer">ALL the generations here will be shown randomly in the gallery section - make sure you don't use personal information in your strips.</p>
+                    
+                    <div id="loading-indicator" class="htmx-indicator">
+                        <div class="spinner"></div>
+                        <p>Creating your visual strip...</p>
+                    </div>
+                    
+                    <div id="result-area" class="result-container"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Almond Spark. All rights reserved.</p>
+    </footer>
+
+    <!-- Helper script to process the API response -->
+    <script>
+        document.addEventListener('htmx:afterSwap', function(event) {
+            if (event.detail.target.id === 'result-area') {
+                try {
+                    const response = JSON.parse(event.detail.xhr.responseText);
+                    if (response.image_base64) {
+                        const resultArea = document.getElementById('result-area');
+                        resultArea.innerHTML = `
+                            <h3>Your Visual Strip</h3>
+                            <img src="data:image/png;base64,${response.image_base64}" alt="Generated visual strip" class="result-image">
+                            <p class="filename">Filename: ${response.filename}</p>
+                        `;
+                    }
+                } catch (e) {
+                    console.error('Error processing response:', e);
+                }
+            }
+        });
+        
+        document.addEventListener('htmx:responseError', function(event) {
+            const resultArea = document.getElementById('result-area');
+            resultArea.innerHTML = `
+                <div class="error-message">
+                    <p>Sorry, there was an error generating your image.</p>
+                    <p>Error: ${event.detail.xhr.status} ${event.detail.xhr.statusText}</p>
+                </div>
+            `;
+            // Reset the generating state in Alpine
+            const form = document.querySelector('[x-data]');
+            if (form && form.__x) {
+                form.__x.$data.generating = false;
+            }
+        });
+
+        async function checkAndSetApiKey() {
+            const apiKey = localStorage.getItem('geminiApiKey');
+            if (!apiKey) {
+                const userApiKey = prompt('Please enter your Gemini API key.\n\nThis key is required to generate visual strips. It will be stored locally and used only for this application.');
+                if (userApiKey) {
+                    try {
+                        const response = await fetch('/set-api-key', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: new URLSearchParams({ api_key: userApiKey })
+                        });
+                        if (!response.ok) {
+                            throw new Error('Failed to save API key');
+                        }
+                        localStorage.setItem('geminiApiKey', userApiKey);
+                        alert('API key saved successfully!');
+                    } catch (error) {
+                        alert('Error saving API key: ' + error.message);
+                    }
+                } else {
+                    alert('API key is required to generate images.');
+                }
+            }
+        }
+
+        async function generateImage() {
+            const sentence = document.getElementById('sentence').value.trim();
+            if (!sentence) {
+                alert('Please enter a sentence');
+                return;
+            }
+            document.getElementById('result').innerHTML = 'Generating...';
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ sentence })
+                });
+                if (response.status === 400) {
+                    await checkAndSetApiKey();
+                    return generateImage(); // Retry after setting the API key
+                }
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Error generating image');
+                }
+                const data = await response.json();
+                const imgSrc = 'data:image/png;base64,' + data.image_base64;
+                document.getElementById('result').innerHTML = `
+                    <p>Filename: ${data.filename}</p>
+                    <img src="${imgSrc}" alt="Generated Strip" />
+                    <div class="gallery-actions">
+                        <button class="gallery-action-btn download-btn" title="Download" onclick="downloadImage('${data.filename}', '${data.image_base64}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="gallery-action-btn print-btn" title="Print" onclick="printImage('${data.image_base64}', '${sentence}')">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+
+        document.getElementById('generateButton').addEventListener('click', generateImage);
+
+        async function checkAndSetApiKey() {
+            const apiKey = localStorage.getItem('geminiApiKey');
+            if (!apiKey) {
+                const userApiKey = prompt('Please enter your Gemini API key.\n\nThis key is required to generate visual strips. It will be stored locally and used only for this application.');
+                if (userApiKey) {
+                    try {
+                        const response = await fetch('/set-api-key', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: new URLSearchParams({ api_key: userApiKey })
+                        });
+                        if (!response.ok) {
+                            throw new Error('Failed to save API key');
+                        }
+                        localStorage.setItem('geminiApiKey', userApiKey);
+                        alert('API key saved successfully!');
+                    } catch (error) {
+                        alert('Error saving API key: ' + error.message);
+                    }
+                } else {
+                    alert('API key is required to generate images.');
+                }
+            }
+        }
+
+        document.getElementById('generatorForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            await checkAndSetApiKey();
+            const sentence = document.getElementById('sentence').value.trim();
+            if (!sentence) {
+                alert('Please enter a sentence');
+                return;
+            }
+            document.getElementById('result').innerHTML = 'Generating...';
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ sentence })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Error generating image');
+                }
+                const data = await response.json();
+                const imgSrc = 'data:image/png;base64,' + data.image_base64;
+                document.getElementById('result').innerHTML = `
+                    <p>Filename: ${data.filename}</p>
+                    <img src="${imgSrc}" alt="Generated Strip" />
+                    <div class="gallery-actions">
+                        <button class="gallery-action-btn download-btn" title="Download" onclick="downloadImage('${data.filename}', '${data.image_base64}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="gallery-action-btn print-btn" title="Print" onclick="printImage('${data.image_base64}', '${sentence}')">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+
+        function submitForm() {
+            console.log("Submit form function called");
+            
+            // Get the form elements
+            const textarea = document.querySelector('.sentence-input');
+            const button = document.querySelector('.generate-button');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const resultArea = document.getElementById('result-area');
+            
+            // Get the sentence
+            const sentence = textarea.value.trim();
+            if (!sentence) {
+                console.log("No sentence entered");
+                return;
+            }
+            
+            console.log("Sending sentence:", sentence);
+            
+            // Show loading and disable inputs
+            loadingIndicator.style.display = 'flex';
+            textarea.disabled = true;
+            button.disabled = true;
+            
+            // Update button text if using Alpine
+            try {
+                if (Alpine) {
+                    const generateButtonEl = document.querySelector('.generate-button');
+                    const scope = generateButtonEl._x_dataStack[0];
+                    if (scope) {
+                        scope.generating = true;
+                    }
+                }
+            } catch (e) {
+                console.log("Alpine not available or error setting state:", e);
+            }
+            
+            // Change the URL in submitForm to test basic connectivity
+            fetch('http://127.0.0.1:8001/api/generate', {  // Change from /api/test to /api/generate
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sentence: sentence })
+            })
+            .then(response => {
+                console.log("Response received:", response.status);
+                if (response.status === 400) {
+                    return checkAndSetApiKey().then(() => submitForm()); // Retry after setting the API key
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Data received:", data);
+                const resultArea = document.getElementById('result-area');
+                resultArea.innerHTML = `
+                    <h3>Your Visual Strip</h3>
+                    <img src="data:image/png;base64,${data.image_base64}" alt="Generated visual strip" class="result-image">
+                    <p class="prompt-text">"${sentence}"</p>
+                    <div class="gallery-actions">
+                        <button class="gallery-action-btn download-btn" title="Download" onclick="downloadImage('${data.filename}', '${data.image_base64}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="gallery-action-btn print-btn" title="Print" onclick="printImage('${data.image_base64}', '${sentence}')">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                console.error('Error details:', error);
+                resultArea.innerHTML = `
+                    <div class="error-message">
+                        <p>Sorry, there was an error generating your image.</p>
+                        <p>Error: ${error.message}</p>
+                        <p>Make sure your backend server is running at http://127.0.0.1:8001</p>
+                    </div>
+                `;
+            })
+            .finally(() => {
+                // Hide loading indicator and re-enable inputs
+                loadingIndicator.style.display = 'none';
+                textarea.disabled = false;
+                button.disabled = false;
+                
+                // Reset Alpine state if possible
+                try {
+                    if (Alpine) {
+                        const generateButtonEl = document.querySelector('.generate-button');
+                        const scope = generateButtonEl._x_dataStack[0];
+                        if (scope) {
+                            scope.generating = false;
+                        }
+                    }
+                } catch (e) {
+                    console.log("Alpine not available or error resetting state:", e);
+                }
+                
+                console.log("Request completed");
+            });
+        }
+
+        // Add helper functions for download and print
+        function downloadImage(filename, base64Data) {
+            const link = document.createElement('a');
+            link.href = `data:image/png;base64,${base64Data}`;
+            link.download = filename || 'almond-spark-image.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function printImage(base64Data, caption) {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Print Image - Almond Spark</title>
+                    <style>
+                        body {
+                            font-family: sans-serif;
+                            text-align: center;
+                            padding: 20px;
+                        }
+                        img {
+                            max-width: 100%;
+                            margin-bottom: 20px;
+                        }
+                        .caption {
+                            font-size: 16px;
+                            margin-top: 10px;
+                            color: #333;
+                        }
+                        @media print {
+                            .no-print {
+                                display: none;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="no-print">
+                        <h1>Print Preview</h1>
+                        <p>Press Ctrl+P (or Cmd+P on Mac) to print this image</p>
+                        <button onclick="window.print()">Print</button>
+                        <button onclick="window.close()">Close</button>
+                        <hr>
+                    </div>
+                    <img src="data:image/png;base64,${base64Data}" alt="${caption}">
+                    <div class="caption">${caption}</div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    </script>
+</body>
+</html>

@@ -219,6 +219,7 @@ button:hover, .gallery-button:hover {
     font-family: inherit;
     resize: vertical;
     transition: border-color 0.3s;
+    box-sizing: border-box;
 }
 
 .sentence-input:focus {
@@ -362,9 +363,11 @@ button:hover, .gallery-button:hover {
 }
 
 .gallery-caption {
-    padding: var(--space-md) var(--space-md);
-    border-top: none;
-    background-color: var(--white);
+    text-align: center;
+    margin-top: 0;
+    font-style: italic;
+    color: var(--teal);
+    font-size: 1.1em;
 }
 
 .gallery-actions {

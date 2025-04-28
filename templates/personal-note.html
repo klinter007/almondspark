@@ -4,18 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Note - Almond Spark</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
     <!-- Favicon -->
-    <link rel="icon" href="images/logo.png" type="image/png">
+    <link rel="icon" href="/static/images/logo.png" type="image/png">
     <!-- Alpine.js -->
-    <script defer src="js/alpine.min.js"></script>
+    <script defer src="/static/js/alpine.min.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <nav class="main-nav">
         <ul>
-            <li><a href="index.html">Home</a></li>
-            <li><a href="gallery.html">Gallery</a></li>
-            <li><a href="personal-note.html" class="active">Personal Note</a></li>
+            <li><a href="/">Home</a></li>
+            <li><a href="/gallery">Gallery</a></li>
+            <li><a href="/personal-note" class="active">Personal Note</a></li>
         </ul>
     </nav>
 
@@ -66,8 +68,24 @@
             <section class="note-section signature">
                 <p>Thanks for dropping by.</p>
                 <p class="signature-name">Gili & Shaked</p>
+                <div class="social-links">
+                    <a href="https://x.com/GiliBenShahar" target="_blank" title="Follow on X">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                    <a href="https://www.instagram.com/gilibenshahar/" target="_blank" title="Follow on Instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.linkedin.com/in/gilibenshahar/" target="_blank" title="Connect on LinkedIn">
+                        <i class="fab fa-linkedin"></i>
+                    </a>
+                    <a href="https://www.facebook.com/gili.benshahar1" target="_blank" title="Follow on Facebook">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="mailto:hanzoom@gmail.com" target="_blank" title="Send an Email">
+                        <i class="fas fa-envelope"></i>
+                    </a>
+                </div>
             </section>
-
             <section class="note-section disclaimer">
                 <h2>BIG DISCLAIMER</h2>
                 <p>I built Almond Spark for my own learning and to help my son communicate.
