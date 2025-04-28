@@ -112,10 +112,11 @@ import random
 import re
 
 GALLERY_LIMIT = 5
+INDEX_PATH = pathlib.Path("logic/index.json")
 
 @app.get("/api/gallery")
 def get_gallery(search: Optional[str] = None):
-    index_path = pathlib.Path("index.json")
+    index_path = INDEX_PATH
     if not index_path.exists():
         return {"gallery": []}
     with index_path.open("r", encoding="utf-8") as f:
