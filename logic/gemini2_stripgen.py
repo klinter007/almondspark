@@ -6,6 +6,7 @@ from io import BytesIO
 from PIL import Image
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
 
 # ─── paths & config ─────────────────────────────────────────────
 HERE = pathlib.Path(__file__).parent
@@ -21,9 +22,21 @@ RULES_PROMPT    = (HERE / "rules_prompt.txt").read_text(encoding="utf-8").strip(
 RULES_STYLE     = (HERE / "rules_style.txt").read_text(encoding="utf-8").strip()  # if needed
 REFERENCE_IMAGE = HERE / "style_ref1.jpg"
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# Load environment variables from .env file
+load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Remove strict dependency on GEMINI_API_KEY
 if GEMINI_API_KEY is None:
-    raise RuntimeError("GEMINI_API_KEY environment variable not set.")
+    logging.warning("GEMINI_API_KEY not found in .env file. The application will prompt for it when needed.")
+    GEMINI_API_KEY = None
+
+# Update client initialization to handle missing API key
+client = None
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    logging.info("Client will be initialized after API key is provided.")
 
 # ─── debug log ───────────────────────────────────────────────────
 LOG_PATH = HERE / "gemini2_stripgen_run.log"
@@ -34,9 +47,12 @@ logging.basicConfig(
 )
 logging.info("─ New run ─────────────────────────────────────────────")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
-
 # ─── helpers ───────────────────────────────────────────────────
+def ensure_client_initialized():
+    global client
+    if client is None:
+        raise RuntimeError("GEMINI_API_KEY is missing. Please set it via the application interface.")
+
 def compose_prompt_hop1(sentence: str) -> str:
     """
     Combine the prompt rules (rules_prompt.txt) with the user sentence.
@@ -44,6 +60,7 @@ def compose_prompt_hop1(sentence: str) -> str:
     return f"{RULES_PROMPT}\n\nINSTRUCTION: \"{sentence.strip()}\""
 
 def generate_image_prompt(sentence: str) -> str:
+    ensure_client_initialized()
     """
     First hop: generate an image prompt from user input using the Gemini text model.
     """
@@ -65,6 +82,7 @@ def generate_image_prompt(sentence: str) -> str:
     raise RuntimeError("No text generated in hop1.")
 
 def generate_strip(sentence: str, out: pathlib.Path) -> pathlib.Path:
+    ensure_client_initialized()
     """
     Second hop: use the generated image prompt and a reference style image to create the final image.
     """
